@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Résultat</title>
+  <style>
+    :root {
+      --bg1: #e0f2fe; --bg2: #ede9fe;
+      --card: #ffffff; --text: #0f172a; --muted: #64748b;
+      --primary: #4f46e5; --primary2: #06b6d4;
+      --track: #e2e8f0; --border: #e2e8f0;
+      --good: #16a34a; --warn: #f59e0b; --bad: #dc2626;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg1: #0f172a; --bg2: #1e1b4b;
+        --card: #1e293b; --text: #f1f5f9; --muted: #94a3b8;
+        --track: #334155; --border: #334155;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; padding: 32px 16px;
+      font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+      color: var(--text);
+      background: linear-gradient(135deg, var(--bg1), var(--bg2));
+      display: flex; justify-content: center; align-items: flex-start;
+    }
+    .card {
+      width: 100%; max-width: 520px; background: var(--card);
+      border-radius: 20px; padding: 32px; text-align: center;
+      box-shadow: 0 20px 50px rgba(79, 70, 229, .15);
+      animation: rise .5s ease both;
+    }
+    @keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+    h1 { font-size: 20px; margin: 0 0 20px; color: var(--muted); font-weight: 600; }
+
+    .gauge { position: relative; width: 200px; height: 200px; margin: 0 auto 18px; }
+    .gauge svg { transform: rotate(-90deg); }
+    .gauge .bg { stroke: var(--track); }
+    .gauge .fg {
+      stroke: var(--c); stroke-linecap: round;
+      stroke-dasharray: 440; stroke-dashoffset: 440;
+      transition: stroke-dashoffset 1.4s cubic-bezier(.2, .8, .2, 1);
+    }
+    .gauge .center {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+    }
+    .pct { font-size: 44px; font-weight: 800; color: var(--c); line-height: 1; }
+    .pct-l { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    .verdict {
+      display: inline-block; padding: 10px 22px; border-radius: 99px;
+      font-weight: 700; font-size: 17px; color: #fff; background: var(--c);
+      margin-bottom: 26px;
+    }
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; text-align: left; margin-bottom: 26px; }
+    .chip {
+      background: var(--bg1); border: 1px solid var(--border);
+      border-radius: 12px; padding: 10px 14px;
+      opacity: 0; animation: rise .4s ease forwards;
+    }
+    .chip small { display: block; color: var(--muted); font-size: 12px; }
+    .chip b { font-size: 17px; }
+    .chip span { color: var(--muted); font-size: 12px; margin-left: 4px; }
+
+    .back {
+      display: inline-block; text-decoration: none; color: #fff; font-weight: 600;
+      padding: 14px 28px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--primary), var(--primary2));
+      box-shadow: 0 8px 20px rgba(79, 70, 229, .35); transition: transform .15s;
+    }
+    .back:hover { transform: translateY(-2px); }
+  </style>
+</head>
+<body>
+  <div class="card" id="card">
+    <h1>Résultat de la prédiction</h1>
+
+    <div class="gauge">
+      <svg width="200" height="200" viewBox="0 0 160 160">
+        <circle class="bg" cx="80" cy="80" r="70" fill="none" stroke-width="14"/>
+        <circle class="fg" id="fg" cx="80" cy="80" r="70" fill="none" stroke-width="14"/>
+      </svg>
+      <div class="center">
+        <div class="pct"><span id="pct">0</span>%</div>
+        <div class="pct-l">probabilité</div>
+      </div>
+    </div>
+
+    <div class="verdict" id="verdict"></div>
+
+    <div class="grid" id="grid"></div>
+
+    <a class="back" href="/">← Nouvelle prédiction</a>
+  </div>
+
+  <script>
+    const PRED  = {{ prediction }};
+    const PROBA = {{ proba }};
+    const VALUES = {{ values|tojson }};
+
+    const META = {
+      Pregnancies:              { label: "Grossesses",            unit: "" },
+      Glucose:                  { label: "Glucose",               unit: "mg/dL" },
+      BloodPressure:            { label: "Pression artérielle",   unit: "mm Hg" },
+      SkinThickness:            { label: "Épaisseur de la peau",  unit: "mm" },
+      Insulin:                  { label: "Insuline",              unit: "µU/mL" },
+      BMI:                      { label: "IMC",                   unit: "kg/m²" },
+      DiabetesPedigreeFunction: { label: "Antécédents familiaux", unit: "" },
+      Age:                      { label: "Âge",                   unit: "ans" }
+    };
+
+    // Niveau de risque selon la probabilité
+    let level, color;
+    if (PROBA < 30)      { level = "Risque faible";  color = "var(--good)"; }
+    else if (PROBA < 60) { level = "Risque modéré";  color = "var(--warn)"; }
+    else                 { level = "Risque élevé";   color = "var(--bad)"; }
+
+    document.getElementById("card").style.setProperty("--c", color);
+    document.getElementById("verdict").textContent = level;
+
+    // Jauge animée + compteur
+    const C = 2 * Math.PI * 70;
+    const fg = document.getElementById("fg");
+    fg.style.strokeDasharray = C;
+    fg.style.strokeDashoffset = C;
+    requestAnimationFrame(() => setTimeout(() => {
+      fg.style.strokeDashoffset = C * (1 - PROBA / 100);
+    }, 100));
+
+    const pctEl = document.getElementById("pct");
+    const t0 = performance.now(), dur = 1400;
+    (function tick(t) {
+      const k = Math.min((t - t0) / dur, 1);
+      const e = 1 - Math.pow(1 - k, 3);
+      pctEl.textContent = (PROBA * e).toFixed(1);
+      if (k < 1) requestAnimationFrame(tick);
+    })(t0);
+
+    // Récapitulatif des valeurs saisies
+    const grid = document.getElementById("grid");
+    Object.entries(VALUES).forEach(([k, v], i) => {
+      const m = META[k] || { label: k, unit: "" };
+      const d = document.createElement("div");
+      d.className = "chip";
+      d.style.animationDelay = (0.15 * i + 0.3) + "s";
+      d.innerHTML = `<small>${m.label}</small><b>${v}</b><span>${m.unit}</span>`;
+      grid.appendChild(d);
+    });
+  </script>
+</body>
+</html>

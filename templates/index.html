@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prédiction du diabète</title>
+  <style>
+    :root {
+      --bg1: #e0f2fe; --bg2: #ede9fe;
+      --card: #ffffff; --text: #0f172a; --muted: #64748b;
+      --primary: #4f46e5; --primary2: #06b6d4;
+      --track: #e2e8f0; --border: #e2e8f0; --error: #dc2626;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg1: #0f172a; --bg2: #1e1b4b;
+        --card: #1e293b; --text: #f1f5f9; --muted: #94a3b8;
+        --track: #334155; --border: #334155;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; padding: 32px 16px;
+      font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+      color: var(--text);
+      background: linear-gradient(135deg, var(--bg1), var(--bg2));
+      display: flex; justify-content: center; align-items: flex-start;
+    }
+    .card {
+      width: 100%; max-width: 560px; background: var(--card);
+      border-radius: 20px; padding: 32px 32px 28px;
+      box-shadow: 0 20px 50px rgba(79, 70, 229, .15);
+      animation: rise .5s ease both;
+    }
+    @keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+    .head { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+    .logo {
+      width: 48px; height: 48px; border-radius: 14px; font-size: 24px;
+      display: grid; place-items: center; color: #fff;
+      background: linear-gradient(135deg, var(--primary), var(--primary2));
+    }
+    h1 { font-size: 22px; margin: 0; }
+    .sub { color: var(--muted); font-size: 14px; margin: 0 0 22px; }
+    .error {
+      background: #fee2e2; color: var(--error); border-radius: 10px;
+      padding: 10px 14px; margin-bottom: 16px; font-size: 14px;
+    }
+    .field { margin-bottom: 20px; }
+    .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .row label { font-weight: 600; font-size: 14px; }
+    .val-box {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--bg1); border: 1px solid var(--border);
+      border-radius: 10px; padding: 4px 10px;
+    }
+    .val-box input {
+      width: 70px; border: 0; background: transparent; color: var(--text);
+      font-size: 15px; font-weight: 700; text-align: right; outline: none;
+    }
+    .val-box input::-webkit-outer-spin-button,
+    .val-box input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .val-box input[type=number] { -moz-appearance: textfield; }
+    .unit { color: var(--muted); font-size: 12px; min-width: 34px; }
+    .val-box:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,.2); }
+
+    input[type=range] {
+      -webkit-appearance: none; appearance: none; width: 100%; height: 8px;
+      border-radius: 99px; outline: none; cursor: pointer;
+      background: linear-gradient(90deg, var(--primary) var(--p, 50%), var(--track) var(--p, 50%));
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%;
+      background: #fff; border: 4px solid var(--primary);
+      box-shadow: 0 2px 6px rgba(0,0,0,.25); transition: transform .15s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+    input[type=range]::-moz-range-thumb {
+      width: 16px; height: 16px; border-radius: 50%; background: #fff;
+      border: 4px solid var(--primary);
+    }
+    .range-labels { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; margin-top: 4px; }
+
+    .actions { display: flex; gap: 12px; margin-top: 28px; }
+    button {
+      border: 0; border-radius: 12px; padding: 14px; font-size: 16px; font-weight: 600;
+      cursor: pointer; transition: transform .15s, box-shadow .15s, opacity .15s;
+    }
+    .btn-main {
+      flex: 1; color: #fff;
+      background: linear-gradient(135deg, var(--primary), var(--primary2));
+      box-shadow: 0 8px 20px rgba(79, 70, 229, .35);
+    }
+    .btn-main:hover { transform: translateY(-2px); }
+    .btn-main:disabled { opacity: .7; cursor: wait; transform: none; }
+    .btn-reset { background: var(--bg1); color: var(--muted); padding: 14px 20px; }
+    .btn-reset:hover { color: var(--text); }
+    .spinner {
+      display: inline-block; width: 16px; height: 16px; margin-right: 8px; vertical-align: -2px;
+      border: 3px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="head">
+      <div class="logo">🩺</div>
+      <h1>Prédiction du diabète</h1>
+    </div>
+    <p class="sub">Ajustez les curseurs ou saisissez les valeurs, puis lancez la prédiction.</p>
+
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+    <form id="form" action="/predict" method="POST">
+      <div id="fields"></div>
+      <div class="actions">
+        <button type="button" class="btn-reset" id="reset">Réinitialiser</button>
+        <button type="submit" class="btn-main" id="submit">Prédire</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const FEATURES = {{ features|tojson }};
+    const DEFAULTS = {{ defaults|tojson }};
+
+    // Libellés, bornes et unités (valeurs par défaut pour les variables inconnues)
+    const META = {
+      Pregnancies:              { label: "Nombre de grossesses",   min: 0,    max: 17,  step: 1,    unit: "" },
+      Glucose:                  { label: "Glucose",                min: 50,   max: 250, step: 1,    unit: "mg/dL" },
+      BloodPressure:            { label: "Pression artérielle",    min: 40,   max: 130, step: 1,    unit: "mm Hg" },
+      SkinThickness:            { label: "Épaisseur de la peau",   min: 5,    max: 100, step: 1,    unit: "mm" },
+      Insulin:                  { label: "Insuline",               min: 10,   max: 850, step: 1,    unit: "µU/mL" },
+      BMI:                      { label: "IMC",                    min: 15,   max: 70,  step: 0.1,  unit: "kg/m²" },
+      DiabetesPedigreeFunction: { label: "Antécédents familiaux",  min: 0.05, max: 2.5, step: 0.01, unit: "" },
+      Age:                      { label: "Âge",                    min: 18,   max: 90,  step: 1,    unit: "ans" }
+    };
+    const meta = f => META[f] || { label: f, min: 0, max: 100, step: 1, unit: "" };
+
+    const container = document.getElementById("fields");
+
+    FEATURES.forEach(f => {
+      const m = meta(f);
+      const start = DEFAULTS[f] ?? m.min;
+      const div = document.createElement("div");
+      div.className = "field";
+      div.innerHTML = `
+        <div class="row">
+          <label for="${f}">${m.label}</label>
+          <div class="val-box">
+            <input type="number" id="${f}" name="${f}" min="${m.min}" max="${m.max * 3}"
+                   step="${m.step}" value="${start}" required>
+            <span class="unit">${m.unit}</span>
+          </div>
+        </div>
+        <input type="range" id="${f}_r" min="${m.min}" max="${m.max}" step="${m.step}" value="${start}">
+        <div class="range-labels"><span>${m.min}</span><span>${m.max}</span></div>`;
+      container.appendChild(div);
+
+      const num = div.querySelector(`#${f}`);
+      const rng = div.querySelector(`#${f}_r`);
+      const paint = () => {
+        const p = ((rng.value - rng.min) / (rng.max - rng.min)) * 100;
+        rng.style.setProperty("--p", Math.max(0, Math.min(100, p)) + "%");
+      };
+      rng.addEventListener("input", () => { num.value = rng.value; paint(); });
+      num.addEventListener("input", () => { rng.value = num.value; paint(); });
+      div.dataset.start = start;
+      paint();
+    });
+
+    document.getElementById("reset").addEventListener("click", () => {
+      document.querySelectorAll(".field").forEach(div => {
+        const num = div.querySelector("input[type=number]");
+        const rng = div.querySelector("input[type=range]");
+        num.value = rng.value = div.dataset.start;
+        num.dispatchEvent(new Event("input"));
+      });
+    });
+
+    document.getElementById("form").addEventListener("submit", () => {
+      const b = document.getElementById("submit");
+      b.disabled = true;
+      b.innerHTML = '<span class="spinner"></span>Analyse...';
+    });
+  </script>
+</body>
+</html>
